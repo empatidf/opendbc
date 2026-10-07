@@ -742,6 +742,13 @@ class CAR(Platforms):
     chassis_codes={"3V", "NP"},
     wmis={WMI.SKODA},
   )
+  SKODA_SUPERB_MK4 = VolkswagenMQBevoPlatformConfig(
+    [VWCarDocs("Škoda Superb 2024-25")],
+    VolkswagenCarSpecs(mass=1678, wheelbase=2.84),
+    chassis_codes={"NZ"},
+    wmis={WMI.SKODA},
+    flags=VolkswagenFlags.MQB_EVO_GEN2,
+  )
 
 
 def match_fw_to_car_fuzzy(live_fw_versions, vin, offline_fw_versions) -> set[str]:

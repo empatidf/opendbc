@@ -3419,6 +3419,17 @@
     ],
     "package": "Adaptive Cruise Control (ACC) & Lane Assist"
   },
+  "Škoda Superb 2024-25": {
+    "platform": "SKODA_SUPERB_MK4",
+    "make": "Škoda",
+    "brand": "volkswagen",
+    "model": "Superb",
+    "year": [
+      "2024",
+      "2025"
+    ],
+    "package": "Adaptive Cruise Control (ACC) & Lane Assist"
+  },
   "Tesla Model 3 (with HW3) 2019-23": {
     "platform": "TESLA_MODEL_3",
     "make": "Tesla",
