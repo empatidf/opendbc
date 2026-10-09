@@ -99,11 +99,17 @@ class CarController(CarControllerBase, IntelligentCruiseButtonManagementInterfac
           apply_curvature = actuators.curvature + steer_correction
           apply_curvature = self.CCP.CURVATURE_LIMITS.apply_limits(apply_curvature, self.apply_curvature_last, CS.out.vEgoRaw,
                                                                     CS.out_ic.steeringCurvature, CC.latActive, self.CCP.STEER_STEP)
+          # low-speed rate cap on top of the lateral jerk limit (see CarControllerParams)
+          curvature_rate = float(np.interp(CS.out.vEgoRaw, self.CCP.CURVATURE_RATE_BP, self.CCP.CURVATURE_RATE_V))
+          apply_curvature = float(np.clip(apply_curvature, self.apply_curvature_last - curvature_rate,
+                                          self.apply_curvature_last + curvature_rate))
 
+          power_max = int(np.interp(CS.out.vEgoRaw, self.CCP.STEERING_POWER_MAX_BP, self.CCP.STEERING_POWER_MAX_V))
           min_power = max(self.steering_power_last - self.CCP.STEERING_POWER_STEP, self.CCP.STEERING_POWER_MIN)
-          max_power = min(self.steering_power_last + self.CCP.STEERING_POWER_STEP, self.CCP.STEERING_POWER_MAX)
-          target_power_driver = int(np.interp(abs(CS.out.steeringTorque), [self.CCP.STEER_DRIVER_ALLOWANCE, self.CCP.STEER_DRIVER_MAX],
-                                                                          [self.CCP.STEERING_POWER_MAX, self.CCP.STEERING_POWER_MIN]))
+          max_power = min(self.steering_power_last + self.CCP.STEERING_POWER_STEP, power_max)
+          target_power_driver = int(np.interp(abs(CS.out.steeringTorque),
+                                              [self.CCP.STEER_DRIVER_ALLOWANCE, self.CCP.STEER_DRIVER_MAX],
+                                              [power_max, self.CCP.STEERING_POWER_MIN]))
           target_power = int(np.interp(CS.out.vEgo, [0., 0.5], [self.CCP.STEERING_POWER_MIN, target_power_driver]))
           steering_power = min(max(target_power, min_power), max_power)
 
@@ -118,7 +124,10 @@ class CarController(CarControllerBase, IntelligentCruiseButtonManagementInterfac
             steering_power = 0
 
         can_sends.append(self.CCS.create_steering_control(self.packer_pt, self.CAN.pt, apply_curvature, hca_enabled, steering_power))
-        self.apply_curvature_last = apply_curvature
+        # while inactive track the measured curvature so the low-speed rate cap ramps from where the wheel is on engagement
+        self.apply_curvature_last = apply_curvature if hca_enabled else float(np.clip(CS.out_ic.steeringCurvature,
+                                                                                      -self.CCP.CURVATURE_LIMITS.CURVATURE_MAX,
+                                                                                      self.CCP.CURVATURE_LIMITS.CURVATURE_MAX))
         self.steering_power_last = steering_power
         
       else:

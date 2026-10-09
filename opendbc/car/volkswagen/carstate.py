@@ -294,7 +294,10 @@ class CarState(CarStateBase, MadsCarState):
     drive_mode = ret.gearShifter == GearShifter.drive
     
     hca_status = self.CCP.hca_status_values.get(pt_cp.vl["QFK_01"]["LatCon_HCA_Status"])
-    hca_status_fluctuation = self.update_hca_status_watchdog(hca_status) if not (self.CP.flags & VolkswagenFlags.STOCK_HCA_PRESENT) else False
+    # the EPS briefly drops HCA to "ready" while the driver overrides with high torque, don't count that as a fluctuation
+    hca_status_fluctuation = False
+    if not (self.CP.flags & VolkswagenFlags.STOCK_HCA_PRESENT):
+      hca_status_fluctuation = self.update_hca_status_watchdog(hca_status, ret.steeringPressed)
     ret.steerFaultTemporary, ret.steerFaultPermanent, ret_ic.steerFaultWarning = self.update_hca_state(
       hca_status, drive_mode=drive_mode, hca_watchdog_fail=hca_status_fluctuation
     )
@@ -542,11 +545,11 @@ class CarState(CarStateBase, MadsCarState):
     ret.steerFaultTemporary, ret.steerFaultPermanent, ret_ic.steerFaultWarning = self.update_hca_state(hca_status, drive_mode)
     return
     
-  def update_hca_status_watchdog(self, hca_status):
+  def update_hca_status_watchdog(self, hca_status, driver_override=False):
     # On MY2025+ vehicles the steering command path moves to Automotive Ethernet, where it cannot be intercepted here.
     # Detect the resulting fluctuating HCA status so a user-facing warning can be raised.
     current_frame = self.frame
-    if self.hca_status_last is not None and hca_status is not None and hca_status != self.hca_status_last:
+    if self.hca_status_last is not None and hca_status is not None and hca_status != self.hca_status_last and not driver_override:
       self.hca_status_fluctuation_frames.append(current_frame)
     self.hca_status_last = hca_status
     while self.hca_status_fluctuation_frames and current_frame - self.hca_status_fluctuation_frames[0] >= self.CCP.HCA_STATUS_WATCHDOG_WINDOW_FRAMES:
