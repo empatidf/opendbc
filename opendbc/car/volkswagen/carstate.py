@@ -35,6 +35,9 @@ class CarState(CarStateBase, MadsCarState):
     self.hca_status_last = None
     self.hca_status_fluct_counter = 0
     self.hca_status_fluctuation_frames = deque()
+    self.hca_status_debounced = None
+    self.hca_status_candidate = None
+    self.hca_status_candidate_frames = 0
     self.travel_assist_available = False
 
   def update_button_enable(self, buttonEvents: list[structs.CarState.ButtonEvent]):
@@ -293,8 +296,10 @@ class CarState(CarStateBase, MadsCarState):
       ret.gearShifter = self.parse_gear_shifter(self.CCP.shifter_values.get(pt_cp.vl["Getriebe_11"]["GE_Fahrstufe"], None))
     drive_mode = ret.gearShifter == GearShifter.drive
     
-    hca_status = self.CCP.hca_status_values.get(pt_cp.vl["QFK_01"]["LatCon_HCA_Status"])
-    # the EPS briefly drops HCA to "ready" while the driver overrides with high torque, don't count that as a fluctuation
+    # Debounce: the Superb Mk4 EPS reports "ready" for 2-3 frames once every second while it is actively steering,
+    # which otherwise trips the status watchdog. A new status must persist for a few frames before it is used.
+    hca_status_raw = self.CCP.hca_status_values.get(pt_cp.vl["QFK_01"]["LatCon_HCA_Status"])
+    hca_status = self.debounce_hca_status(hca_status_raw)
     hca_status_fluctuation = False
     if not (self.CP.flags & VolkswagenFlags.STOCK_HCA_PRESENT):
       hca_status_fluctuation = self.update_hca_status_watchdog(hca_status, ret.steeringPressed)
@@ -545,6 +550,15 @@ class CarState(CarStateBase, MadsCarState):
     ret.steerFaultTemporary, ret.steerFaultPermanent, ret_ic.steerFaultWarning = self.update_hca_state(hca_status, drive_mode)
     return
     
+  def debounce_hca_status(self, hca_status):
+    if hca_status != self.hca_status_candidate:
+      self.hca_status_candidate = hca_status
+      self.hca_status_candidate_frames = 0
+    self.hca_status_candidate_frames += 1
+    if self.hca_status_debounced is None or self.hca_status_candidate_frames >= self.CCP.HCA_STATUS_DEBOUNCE_FRAMES:
+      self.hca_status_debounced = hca_status
+    return self.hca_status_debounced
+
   def update_hca_status_watchdog(self, hca_status, driver_override=False):
     # On MY2025+ vehicles the steering command path moves to Automotive Ethernet, where it cannot be intercepted here.
     # Detect the resulting fluctuating HCA status so a user-facing warning can be raised.

@@ -114,6 +114,7 @@ class CarControllerParams:
       self.KLR_01_STEP = 6                # KLR_01 message frequency 17Hz
       self.HCA_STATUS_WATCHDOG_MAX_FLUCTUATION_FRAMES = round(self.HCA_STATUS_WATCHDOG_WINDOW_FRAMES *
                                                                DT_CTRL * self.HCA_STATUS_WATCHDOG_ALLOWED_FLUCTUATIONS_PER_SECOND)
+      self.HCA_STATUS_DEBOUNCE_FRAMES = 5  # 50 ms; Superb Mk4 EPS reports "ready" for 2-3 frames once per second while active
       self.STEER_DRIVER_ALLOWANCE  = 60    # Driver torque 0.6 Nm, begin steering reduction from MAX
       self.STEER_DRIVER_SLIGHT_PRESS = 15  # Driver torque 0.15 Nm for slight steering override detection
       self.STEER_DRIVER_MAX        = 300   # Driver torque 3.0 Nm, stop steering reduction at MIN
