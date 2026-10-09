@@ -338,9 +338,19 @@ def create_acc_accel_control(packer, bus, CP, acc_type, acc_enabled, upper_jerk,
     "SET_ME_0X9":                 0x9,
   }
 
-  if CP.flags & VolkswagenFlags.MEB_GEN2:
+  if CP.flags & (VolkswagenFlags.MEB_GEN2 | VolkswagenFlags.MQB_EVO_GEN2):
     values.update({
       "SET_ME_0x2FE": 0x2FE, # unclear if neccessary
+    })
+
+  if CP.flags & VolkswagenFlags.MQB_EVO_GEN2:
+    # EXPERIMENTAL: constants as sent by the Superb Mk4 (MY2024) radar in every ACC state (standby, active, override).
+    # Without them the TSK went to permanent fault within a second of the radar being silenced.
+    values.update({
+      "ACC_Freilaufstrategie_TSK": 1,
+      "Accel_Boost":               62,
+      "Speed":                     409.1,  # the radar never sends the ego speed here, 409.1 is its "not available" value
+      "ACC_AKTIV_regelt":          0,      # never set by the radar, even while regulating
     })
 
   commands.append(packer.make_can_msg("ACC_18", bus, values))
@@ -384,7 +394,8 @@ def get_desired_gap(distance_bars, desired_gap, current_gap_signal):
   return gap
 
 
-def create_acc_hud_control(packer, bus, acc_control, set_speed, lead_visible, distance_bars, show_distance_bars, esp_hold, distance, desired_gap, fcw_alert, acc_event, speed_limit):
+def create_acc_hud_control(packer, bus, acc_control, set_speed, lead_visible, distance_bars, show_distance_bars, esp_hold, distance, desired_gap, fcw_alert, acc_event, speed_limit,
+                           CP=None):
 
   values = {
     "ACC_Status_ACC":                acc_control,
@@ -418,6 +429,14 @@ def create_acc_hud_control(packer, bus, acc_control, set_speed, lead_visible, di
     "SET_ME_0XFFFF":                 0xFFFF, # unknown
     "SET_ME_0X7FFF":                 0x7FFF, # unknown
   }
+
+  if CP is not None and CP.flags & VolkswagenFlags.MQB_EVO_GEN2:
+    # EXPERIMENTAL: constants as sent by the Superb Mk4 (MY2024) radar in every ACC state
+    values.update({
+      "Heartbeat":     510,
+      "SET_ME_0X6A":   200,
+      "Lead_Position": 3,
+    })
 
   return packer.make_can_msg("ACC_19", bus, values)
 
