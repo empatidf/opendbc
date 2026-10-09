@@ -95,7 +95,14 @@ class CarController(CarControllerBase, IntelligentCruiseButtonManagementInterfac
         if CC.latActive:
           hca_enabled = True
           # no closed loop correction for FORD as long as the current curvature car signal is verified
-          steer_correction = CS.out_ic.steeringCurvature - CC.currentCurvature + CC_IC.rollCompensation if not (self.CP.flags & VolkswagenFlags.FORD_CAR) else 0.
+          # MQB evo GEN2 (Superb Mk4 measured): QFK_01 reports ~0.80 of the commanded curvature while the car achieves
+          # ~0.94, so the correction term reduced the command by ~14 % and the car ran wide in curves. Keep roll only.
+          if self.CP.flags & VolkswagenFlags.FORD_CAR:
+            steer_correction = 0.
+          elif self.CP.flags & VolkswagenFlags.MQB_EVO_GEN2:
+            steer_correction = CC_IC.rollCompensation
+          else:
+            steer_correction = CS.out_ic.steeringCurvature - CC.currentCurvature + CC_IC.rollCompensation
           apply_curvature = actuators.curvature + steer_correction
           apply_curvature = self.CCP.CURVATURE_LIMITS.apply_limits(apply_curvature, self.apply_curvature_last, CS.out.vEgoRaw,
                                                                     CS.out_ic.steeringCurvature, CC.latActive, self.CCP.STEER_STEP)

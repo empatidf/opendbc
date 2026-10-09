@@ -121,20 +121,13 @@ class CarControllerParams:
       self.STEERING_POWER_MIN      = 4     # HCA_03 minimum steering power, percentage
       self.STEERING_POWER_STEP     = 2     # HCA_03 steering power counter steps
 
-      # Low-speed smoothing (MQB evo): the EPS executes the curvature command eagerly and the planner's desired curvature
-      # is noisy below ~40 km/h, which felt jerky on the Superb Mk4. Cap the steering power and the per-frame curvature
-      # change at low speed. The rate cap of 0.0012 1/m per 20 ms frame equals a steering wheel rate of ~150 deg/s for a
-      # steer ratio of 15.6 and a 2.84 m wheelbase; 1.0 means no extra limit.
-      if CP.flags & VolkswagenFlags.MQB_EVO:
-        self.STEERING_POWER_MAX_BP = [7.0, 14.0]       # m/s (25..50 km/h)
-        self.STEERING_POWER_MAX_V = [25, self.STEERING_POWER_MAX]
-        self.CURVATURE_RATE_BP = [5.5, 14.0]           # m/s (20..50 km/h)
-        self.CURVATURE_RATE_V = [0.0012, 1.0]          # 1/m per STEER_STEP frame
-      else:
-        self.STEERING_POWER_MAX_BP = [0.0]
-        self.STEERING_POWER_MAX_V = [self.STEERING_POWER_MAX]
-        self.CURVATURE_RATE_BP = [0.0]
-        self.CURVATURE_RATE_V = [1.0]
+      # Speed-dependent steering power cap and per-frame curvature rate cap (1.0 = no extra limit on top of the ISO
+      # lateral jerk limit). Neutral by default. A Superb Mk4 test with 25 % power below 25 km/h and a 0.0012 1/m per
+      # frame rate cap made the car run wide in tight turns: real turns need up to 0.2 1/m within ~0.5 s at 15 km/h.
+      self.STEERING_POWER_MAX_BP = [0.0]
+      self.STEERING_POWER_MAX_V = [self.STEERING_POWER_MAX]
+      self.CURVATURE_RATE_BP = [0.0]
+      self.CURVATURE_RATE_V = [1.0]
 
       self.CURVATURE_MAX = 0.195          # Max curvature for steering command, m^-1
       self.CURVATURE_LIMITS = CurvatureSteeringLimits(self.CURVATURE_MAX)
