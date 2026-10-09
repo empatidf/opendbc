@@ -1676,10 +1676,8 @@ FW_VERSIONS = {
     ],
   },
   CAR.SKODA_SUPERB_MK4: {
-    (Ecu.engine, 0x7e0, None): [],
-    (Ecu.transmission, 0x7e1, None): [],
-    (Ecu.srs, 0x715, None): [],
-    (Ecu.eps, 0x712, None): [],
-    (Ecu.fwdRadar, 0x757, None): [],
+    (Ecu.fwdRadar, 0x757, None): [
+      b'\xf1\x871N3907567B \xf1\x890280',
+    ],
   },
 }
