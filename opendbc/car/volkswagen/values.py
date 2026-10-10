@@ -130,6 +130,18 @@ class CarControllerParams:
       self.CURVATURE_RATE_BP = [0.0]
       self.CURVATURE_RATE_V = [1.0]
 
+      # Curvature gain compensation. Measured on a Superb Mk4 (72 min, 40-140 km/h): true curvature (yaw rate / v)
+      # per HCA_03 command is 0.8-0.9 up to 100 km/h and drops to ~0.35 above ~100 km/h (EPS reduced-authority map),
+      # so curves and lane changes at Autobahn speed get only a third of the planned curvature. Scale the command by
+      # 1/gain; apply_limits still caps the command at the ISO lateral accel/jerk limits (as does the panda), so the
+      # real lateral acceleration stays below ~1.4 m/s^2 at 130 km/h. First-test values stay below the measured 1/0.35.
+      if CP.flags & VolkswagenFlags.MQB_EVO_GEN2:
+        self.CURVATURE_GAIN_BP = [11.1, 16.7, 26.4, 29.2, 33.3]   # m/s: 40, 60, 95, 105, 120 km/h
+        self.CURVATURE_GAIN_V = [1.0, 1.15, 1.2, 2.0, 2.3]
+      else:
+        self.CURVATURE_GAIN_BP = [0.0]
+        self.CURVATURE_GAIN_V = [1.0]
+
       self.CURVATURE_MAX = 0.195          # Max curvature for steering command, m^-1
       self.CURVATURE_LIMITS = CurvatureSteeringLimits(self.CURVATURE_MAX)
 
@@ -753,7 +765,7 @@ class CAR(Platforms):
   )
   SKODA_SUPERB_MK4 = VolkswagenMQBevoPlatformConfig(
     [VWCarDocs("Škoda Superb 2024-25")],
-    VolkswagenCarSpecs(mass=1678, wheelbase=2.84),
+    VolkswagenCarSpecs(mass=1678, wheelbase=2.84, steerRatio=16.5),  # steerRatio: paramsd converged 15.6 -> 16.5 over 40 min
     chassis_codes={"NZ"},
     wmis={WMI.SKODA},
     flags=VolkswagenFlags.MQB_EVO_GEN2,
