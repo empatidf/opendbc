@@ -104,6 +104,8 @@ class CarController(CarControllerBase, IntelligentCruiseButtonManagementInterfac
           else:
             steer_correction = CS.out_ic.steeringCurvature - CC.currentCurvature + CC_IC.rollCompensation
           apply_curvature = actuators.curvature + steer_correction
+          # compensate the speed-dependent EPS curvature gain (see CarControllerParams.CURVATURE_GAIN_*)
+          apply_curvature *= float(np.interp(CS.out.vEgoRaw, self.CCP.CURVATURE_GAIN_BP, self.CCP.CURVATURE_GAIN_V))
           apply_curvature = self.CCP.CURVATURE_LIMITS.apply_limits(apply_curvature, self.apply_curvature_last, CS.out.vEgoRaw,
                                                                     CS.out_ic.steeringCurvature, CC.latActive, self.CCP.STEER_STEP)
           # low-speed rate cap on top of the lateral jerk limit (see CarControllerParams)
