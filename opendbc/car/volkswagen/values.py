@@ -136,11 +136,25 @@ class CarControllerParams:
       # 1/gain; apply_limits still caps the command at the ISO lateral accel/jerk limits (as does the panda), so the
       # real lateral acceleration stays below ~1.4 m/s^2 at 130 km/h. First-test values stay below the measured 1/0.35.
       if CP.flags & VolkswagenFlags.MQB_EVO_GEN2:
-        self.CURVATURE_GAIN_BP = [11.1, 16.7, 26.4, 29.2, 33.3]   # m/s: 40, 60, 95, 105, 120 km/h
-        self.CURVATURE_GAIN_V = [1.0, 1.15, 1.2, 2.0, 2.3]
+        # town bands re-measured on 4 later routes: native gain 0.9-1.07 at 20-60 km/h, so no scaling below 60 km/h
+        # (the earlier 1.15 there made the car cut curves to the inside)
+        self.CURVATURE_GAIN_BP = [16.7, 22.2, 26.4, 29.2, 33.3]   # m/s: 60, 80, 95, 105, 120 km/h
+        self.CURVATURE_GAIN_V = [1.0, 1.12, 1.2, 2.0, 2.3]
       else:
         self.CURVATURE_GAIN_BP = [0.0]
         self.CURVATURE_GAIN_V = [1.0]
+
+      # Low-speed command smoothing: first order low-pass on the curvature command, time constant by speed (0 = off).
+      # The driving model's desired curvature carries a ~2 Hz, ~1.7 deg wheel dither below 15 km/h on the Superb Mk4.
+      # Gain is 1 for sustained turns, so unlike a rate cap it does not reduce the curvature reached in tight turns.
+      self.CURVATURE_LPF_TAU_BP = [2.8, 8.3]     # m/s: 10, 30 km/h
+      self.CURVATURE_LPF_TAU_V = [0.2, 0.0] if CP.flags & VolkswagenFlags.MQB_EVO_GEN2 else [0.0, 0.0]
+
+      # Hand-back to the driver: while the driver presses (> STEER_DRIVER_ALLOWANCE) let the steering power drop faster
+      # and reach the minimum at a lower driver torque. The Superb Mk4 rack latched LKAS faults with the driver holding
+      # 0.6-1.2 Nm against a high power request.
+      self.STEERING_POWER_STEP_DOWN_PRESSED = 8     # % per step while the driver presses (50 -> 4 in ~120 ms)
+      self.STEER_DRIVER_POWER_MAX = 150 if CP.flags & VolkswagenFlags.MQB_EVO_GEN2 else self.STEER_DRIVER_MAX  # 1.5 Nm -> power MIN
 
       self.CURVATURE_MAX = 0.195          # Max curvature for steering command, m^-1
       self.CURVATURE_LIMITS = CurvatureSteeringLimits(self.CURVATURE_MAX)
@@ -269,6 +283,7 @@ class VolkswagenSafetyFlags(IntFlag):
   LONG_CONTROL = 1
   ALT_CRC_VARIANT_1 = 2
   DISABLE_RADAR = 8
+  SPOOF_TA = 16  # stock ACC mode: openpilot sends TA_01 (Travel Assist status) and the camera's copy is blocked
 
 
 class VolkswagenFlags(IntFlag):

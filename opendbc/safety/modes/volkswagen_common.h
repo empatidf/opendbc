@@ -3,10 +3,12 @@
 extern const uint16_t FLAG_VOLKSWAGEN_LONG_CONTROL;
 extern const uint16_t FLAG_VOLKSWAGEN_ALT_CRC_VARIANT_1;
 extern const uint16_t FLAG_VOLKSWAGEN_DISABLE_RADAR;
+extern const uint16_t FLAG_VOLKSWAGEN_SPOOF_TA;
 
 const uint16_t FLAG_VOLKSWAGEN_LONG_CONTROL = 1;
 const uint16_t FLAG_VOLKSWAGEN_ALT_CRC_VARIANT_1 = 2;
 const uint16_t FLAG_VOLKSWAGEN_DISABLE_RADAR = 8;
+const uint16_t FLAG_VOLKSWAGEN_SPOOF_TA = 16;      // stock ACC mode: openpilot sends TA_01 and the camera's copy is blocked
 
 static uint8_t volkswagen_crc8_lut_8h2f[256]; // Static lookup table for CRC8 poly 0x2F, aka 8H2F/AUTOSAR
 

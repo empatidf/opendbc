@@ -89,6 +89,16 @@ def create_blinker_control(packer, bus, ea_hud_stock_values, ea_control_stock_va
   return packer.make_can_msg("EA_02", bus, values)
 
 
+def create_travel_assist(packer, bus, status, available):
+  # Replacement for the camera's TA_01 while openpilot steers with stock ACC. status: 0 off, 2 ready, 4 active.
+  values = {
+    "Travel_Assist_Status":    status,
+    "Travel_Assist_Request":   0,
+    "Travel_Assist_Available": 1 if available else 0,
+  }
+  return packer.make_can_msg("TA_01", bus, values)
+
+
 def create_lka_hud_control(packer, bus, CP, ldw_stock_values, lat_active, steering_pressed, hud_alert, hud_control, sound_alert):
   display_mode = 1 if lat_active and not (CP.flags & VolkswagenFlags.CLUSTER_NO_TA_LANES) else 0 # travel assist style showing yellow lanes when op is active
   

@@ -301,6 +301,20 @@ class TestVolkswagenMebGen2StockSafety(TestVolkswagenMebStockSafety):
     self.safety.init_tests()
 
 
+# MQB evo GEN2 stock ACC with openpilot taking over the Travel Assist status frame (TA_01)
+class TestVolkswagenMqbEvoGen2SpoofTaStockSafety(TestVolkswagenMebStockSafety):
+  TX_MSGS = [[MSG_HCA_03, 0], [MSG_LDW_02, 0], [MSG_GRA_ACC_01, 0], [MSG_GRA_ACC_01, 2],
+             [MSG_EA_01, 0], [MSG_EA_02, 0], [MSG_KLR_01, 0], [MSG_KLR_01, 2], [MSG_TA_01, 0]]
+  FWD_BLACKLISTED_ADDRS = {0: [MSG_KLR_01], 2: [MSG_HCA_03, MSG_LDW_02, MSG_EA_02, MSG_TA_01]}
+  RELAY_MALFUNCTION_ADDRS = {0: (MSG_HCA_03, MSG_LDW_02, MSG_EA_02, MSG_TA_01), 2: (MSG_KLR_01,)}
+
+  def setUp(self):
+    self.packer = CANPackerSafety("vw_mqbevo_2024_generated")
+    self.safety = libsafety_py.libsafety
+    self.safety.set_safety_hooks(CarParams.SafetyModel.volkswagenMqbEvo, VolkswagenSafetyFlags.ALT_CRC_VARIANT_1 | VolkswagenSafetyFlags.SPOOF_TA)
+    self.safety.init_tests()
+
+
 # sunnypilot: MQBevo shares the MEB safety hooks (alias)
 class TestVolkswagenMqbEvoStockSafety(TestVolkswagenMebStockSafety):
   def setUp(self):

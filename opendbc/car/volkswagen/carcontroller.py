@@ -112,12 +112,18 @@ class CarController(CarControllerBase, IntelligentCruiseButtonManagementInterfac
           curvature_rate = float(np.interp(CS.out.vEgoRaw, self.CCP.CURVATURE_RATE_BP, self.CCP.CURVATURE_RATE_V))
           apply_curvature = float(np.clip(apply_curvature, self.apply_curvature_last - curvature_rate,
                                           self.apply_curvature_last + curvature_rate))
+          # low-speed low-pass (see CarControllerParams.CURVATURE_LPF_TAU_*), unity gain for sustained turns
+          lpf_tau = float(np.interp(CS.out.vEgoRaw, self.CCP.CURVATURE_LPF_TAU_BP, self.CCP.CURVATURE_LPF_TAU_V))
+          if lpf_tau > 0.:
+            dt = self.CCP.STEER_STEP * DT_CTRL
+            apply_curvature = self.apply_curvature_last + (apply_curvature - self.apply_curvature_last) * dt / (lpf_tau + dt)
 
           power_max = int(np.interp(CS.out.vEgoRaw, self.CCP.STEERING_POWER_MAX_BP, self.CCP.STEERING_POWER_MAX_V))
-          min_power = max(self.steering_power_last - self.CCP.STEERING_POWER_STEP, self.CCP.STEERING_POWER_MIN)
+          power_step_down = self.CCP.STEERING_POWER_STEP_DOWN_PRESSED if CS.out.steeringPressed else self.CCP.STEERING_POWER_STEP
+          min_power = max(self.steering_power_last - power_step_down, self.CCP.STEERING_POWER_MIN)
           max_power = min(self.steering_power_last + self.CCP.STEERING_POWER_STEP, power_max)
           target_power_driver = int(np.interp(abs(CS.out.steeringTorque),
-                                              [self.CCP.STEER_DRIVER_ALLOWANCE, self.CCP.STEER_DRIVER_MAX],
+                                              [self.CCP.STEER_DRIVER_ALLOWANCE, self.CCP.STEER_DRIVER_POWER_MAX],
                                               [power_max, self.CCP.STEERING_POWER_MIN]))
           target_power = int(np.interp(CS.out.vEgo, [0., 0.5], [self.CCP.STEERING_POWER_MIN, target_power_driver]))
           steering_power = min(max(target_power, min_power), max_power)
@@ -259,6 +265,13 @@ class CarController(CarControllerBase, IntelligentCruiseButtonManagementInterfac
 
         if self.frame % 4 == 0:
           can_sends.append(self.CCS.create_radar_objects(self.packer_pt, self.CAN.pt)) # Radar Objects (25 Hz)
+
+    # **** Travel Assist status (stock ACC, MQB evo GEN2) ******************* #
+    # Replace the camera's TA_01 at its own 10 Hz: "active" while openpilot steers with stock ACC engaged (the only
+    # state in which the car itself reports active), otherwise mirror the camera. See VolkswagenSafetyFlags.SPOOF_TA.
+    if self.CP.flags & VolkswagenFlags.MQB_EVO_GEN2 and not self.CP.openpilotLongitudinalControl and self.frame % self.CCP.LDW_STEP == 0:
+      ta_status = 4 if (CC.latActive and CS.out.cruiseState.enabled) else CS.travel_assist_status
+      can_sends.append(mebcan.create_travel_assist(self.packer_pt, self.CAN.pt, ta_status, CS.travel_assist_available))
 
     # **** HUD Controls ***************************************************** #
 
