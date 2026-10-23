@@ -6,7 +6,7 @@ from opendbc.car.lateral import apply_driver_steer_torque_limits
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarControllerBase
 from opendbc.car.volkswagen import mebcan, mlbcan, mqbcan, pqcan
-from opendbc.car.volkswagen.values import CanBus, CarControllerParams, VolkswagenFlags
+from opendbc.car.volkswagen.values import CanBus, CarControllerParams, VolkswagenFlags, VolkswagenSafetyFlags
 from opendbc.car.volkswagen.mebutils import LongControlJerk, LongControlLimit
 
 from opendbc.sunnypilot.car.volkswagen.icbm import IntelligentCruiseButtonManagementInterface
@@ -270,7 +270,9 @@ class CarController(CarControllerBase, IntelligentCruiseButtonManagementInterfac
     # Replace the camera's TA_01 at its own 10 Hz: "active" whenever openpilot steers (with or without stock ACC:
     # measured rack releases 0.7/s with "ready" vs 0.1-0.3/s with "active"), otherwise mirror the camera's status.
     # The rest of the payload is the camera's own. See VolkswagenSafetyFlags.SPOOF_TA.
-    if self.CP.flags & VolkswagenFlags.MQB_EVO_GEN2 and not self.CP.openpilotLongitudinalControl and self.frame % self.CCP.LDW_STEP == 0:
+    # Only when the safety mode allows it (SPOOF_TA, currently disabled in interface.py).
+    spoof_ta = bool(self.CP.safetyConfigs[-1].safetyParam & VolkswagenSafetyFlags.SPOOF_TA.value)
+    if spoof_ta and not self.CP.openpilotLongitudinalControl and self.frame % self.CCP.LDW_STEP == 0:
       ta_status = 4 if CC.latActive else CS.travel_assist_status
       can_sends.append(mebcan.create_travel_assist(self.packer_pt, self.CAN.pt, CS.ta_stock_values, ta_status))
 

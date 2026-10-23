@@ -170,9 +170,12 @@ class CarInterface(CarInterfaceBase):
       if ret.transmissionType == TransmissionType.manual:
         ret.minEnableSpeed = 4.5
 
-    # MQB evo GEN2 with stock ACC: openpilot takes over the Travel Assist status frame (TA_01) while it steers, the
-    # rack otherwise releases HCA for 1-2 frames every second and latches LKAS faults on those releases (Superb Mk4)
-    if ret.flags & VolkswagenFlags.MQB_EVO_GEN2 and not ret.openpilotLongitudinalControl:
+    # MQB evo GEN2 with stock ACC: optional takeover of the Travel Assist status frame (TA_01).
+    # Disabled: measured over 6 routes, the rack's 1 Hz HCA release depends only on the camera's *own* Travel Assist
+    # state (0 releases/s when the car's Travel Assist is engaged, 0.4-1.1/s otherwise), never on the TA_01 frame
+    # openpilot sends. Spoofing only hid the real Travel Assist state from the cluster. Code kept for reference.
+    SPOOF_TA_ENABLED = False
+    if SPOOF_TA_ENABLED and ret.flags & VolkswagenFlags.MQB_EVO_GEN2 and not ret.openpilotLongitudinalControl:
       safety_configs[0].safetyParam |= VolkswagenSafetyFlags.SPOOF_TA.value
 
     # Per-vehicle overrides
