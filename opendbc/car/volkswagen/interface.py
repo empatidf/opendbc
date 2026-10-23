@@ -142,6 +142,12 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.pid.kpV = [0., 1.45]
       ret.lateralTuning.pid.kiV = [0., 0.12]
       ret.lateralTuning.pid.kf = 1.
+      if ret.flags & VolkswagenFlags.MQB_EVO_GEN2:
+        # Superb Mk4 (measured over 5 drives): a constant ~2e-4 1/m rightward curvature bias (crown/alignment) that
+        # the feedforward-only loop never cancels -> the car settles ~0.2 m right of centre and tracks right curves
+        # ~10 % stronger than left ones. Integrator time constant ~2.5 s from 43 km/h; none below 29 km/h as before.
+        ret.lateralTuning.pid.kiBP = [8., 12., 40.]
+        ret.lateralTuning.pid.kiV = [0., 0.4, 0.4]
     else:
       ret.steerActuatorDelay = 0.1
       ret.lateralTuning.pid.kpBP = [0.]

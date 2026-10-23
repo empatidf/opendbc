@@ -39,6 +39,8 @@ class CarState(CarStateBase, MadsCarState):
     self.hca_status_candidate = None
     self.hca_status_candidate_frames = 0
     self.travel_assist_available = False
+    self.travel_assist_status = 0
+    self.ta_stock_values = {}
 
   def update_button_enable(self, buttonEvents: list[structs.CarState.ButtonEvent]):
     if not self.CP.pcmCruise:
@@ -353,6 +355,7 @@ class CarState(CarStateBase, MadsCarState):
     self.acc_type                = ext_cp.vl["ACC_18"]["ACC_Typ"] if not (self.CP.flags & VolkswagenFlags.DISABLE_RADAR) else 2 # 2: acc stop and go
     self.travel_assist_available = bool(cam_cp.vl["TA_01"]["Travel_Assist_Available"])
     self.travel_assist_status = int(cam_cp.vl["TA_01"]["Travel_Assist_Status"])  # camera's own 0 off / 2 ready / 4 active
+    self.ta_stock_values = dict(cam_cp.vl["TA_01"])  # full payload, forwarded with the status replaced (SPOOF_TA)
 
     ret.cruiseState.available = pt_cp.vl["Motor_51"]["TSK_Status"] in (2, 3, 4, 5)
     ret.cruiseState.enabled   = pt_cp.vl["Motor_51"]["TSK_Status"] in (3, 4, 5)
