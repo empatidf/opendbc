@@ -352,6 +352,7 @@ class CarState(CarStateBase, MadsCarState):
 
     self.acc_type                = ext_cp.vl["ACC_18"]["ACC_Typ"] if not (self.CP.flags & VolkswagenFlags.DISABLE_RADAR) else 2 # 2: acc stop and go
     self.travel_assist_available = bool(cam_cp.vl["TA_01"]["Travel_Assist_Available"])
+    self.travel_assist_status = int(cam_cp.vl["TA_01"]["Travel_Assist_Status"])  # camera's own 0 off / 2 ready / 4 active
 
     ret.cruiseState.available = pt_cp.vl["Motor_51"]["TSK_Status"] in (2, 3, 4, 5)
     ret.cruiseState.enabled   = pt_cp.vl["Motor_51"]["TSK_Status"] in (3, 4, 5)
@@ -551,11 +552,13 @@ class CarState(CarStateBase, MadsCarState):
     return
     
   def debounce_hca_status(self, hca_status):
+    # only the 1-2 frame "ready" blips are filtered; fault class states pass through at once
     if hca_status != self.hca_status_candidate:
       self.hca_status_candidate = hca_status
       self.hca_status_candidate_frames = 0
     self.hca_status_candidate_frames += 1
-    if self.hca_status_debounced is None or self.hca_status_candidate_frames >= self.CCP.HCA_STATUS_DEBOUNCE_FRAMES:
+    if self.hca_status_debounced is None or hca_status in ("FAULT", "REJECTED", "PREEMPTED", "DISABLED") or \
+       self.hca_status_candidate_frames >= self.CCP.HCA_STATUS_DEBOUNCE_FRAMES:
       self.hca_status_debounced = hca_status
     return self.hca_status_debounced
 

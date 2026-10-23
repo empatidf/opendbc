@@ -159,6 +159,14 @@ static safety_config volkswagen_meb_init(uint16_t param) {
                                                         {MSG_KLR_01, 0, 8, .check_relay = false}, {MSG_KLR_01, 2, 8, .check_relay = true},
                                                         {MSG_GRA_ACC_01, 2, 8, .check_relay = false}, {MSG_LDW_02, 0, 8, .check_relay = true}};
   
+  // Stock ACC with openpilot taking over the Travel Assist status frame (MQB evo GEN2: the rack releases HCA for
+  // 1-2 frames every second unless TA_01 reports Travel Assist active, and LKAS faults start on those releases)
+  static const CanMsg VOLKSWAGEN_MEB_STOCK_TA_TX_MSGS[] = {{MSG_HCA_03, 0, 24, .check_relay = true}, {MSG_GRA_ACC_01, 0, 8, .check_relay = false},
+                                                           {MSG_EA_01, 0, 8, .check_relay = false}, {MSG_EA_02, 0, 8, .check_relay = true},
+                                                           {MSG_KLR_01, 0, 8, .check_relay = false}, {MSG_KLR_01, 2, 8, .check_relay = true},
+                                                           {MSG_GRA_ACC_01, 2, 8, .check_relay = false}, {MSG_LDW_02, 0, 8, .check_relay = true},
+                                                           {MSG_TA_01, 0, 8, .check_relay = true}};
+
   static const CanMsg VOLKSWAGEN_MEB_LONG_TX_MSGS[] = {
 	VW_MEB_LONG_TX_MSGS
   };
@@ -195,6 +203,7 @@ static safety_config volkswagen_meb_init(uint16_t param) {
   volkswagen_stock_aeb = false;
 
   volkswagen_alt_crc_variant_1 = GET_FLAG(param, FLAG_VOLKSWAGEN_ALT_CRC_VARIANT_1);
+  const bool volkswagen_spoof_ta = GET_FLAG(param, FLAG_VOLKSWAGEN_SPOOF_TA);
 
 #ifdef ALLOW_DEBUG
   volkswagen_longitudinal = GET_FLAG(param, FLAG_VOLKSWAGEN_LONG_CONTROL);
@@ -202,13 +211,15 @@ static safety_config volkswagen_meb_init(uint16_t param) {
 #endif
 
   safety_config ret;
-  
+
   if (volkswagen_longitudinal) {
 	if (volkswagen_disable_radar) {
 	  SET_TX_MSGS(VOLKSWAGEN_MEB_LONG_NO_RADAR_TX_MSGS, ret);
 	} else {
       SET_TX_MSGS(VOLKSWAGEN_MEB_LONG_TX_MSGS, ret);
 	}
+  } else if (volkswagen_spoof_ta) {
+	SET_TX_MSGS(VOLKSWAGEN_MEB_STOCK_TA_TX_MSGS, ret);
   } else {
 	SET_TX_MSGS(VOLKSWAGEN_MEB_STOCK_TX_MSGS, ret);
   }

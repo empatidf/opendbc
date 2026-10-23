@@ -164,6 +164,11 @@ class CarInterface(CarInterfaceBase):
       if ret.transmissionType == TransmissionType.manual:
         ret.minEnableSpeed = 4.5
 
+    # MQB evo GEN2 with stock ACC: openpilot takes over the Travel Assist status frame (TA_01) while it steers, the
+    # rack otherwise releases HCA for 1-2 frames every second and latches LKAS faults on those releases (Superb Mk4)
+    if ret.flags & VolkswagenFlags.MQB_EVO_GEN2 and not ret.openpilotLongitudinalControl:
+      safety_configs[0].safetyParam |= VolkswagenSafetyFlags.SPOOF_TA.value
+
     # Per-vehicle overrides
 
     if candidate == CAR.PORSCHE_MACAN_MK1:
