@@ -267,11 +267,12 @@ class CarController(CarControllerBase, IntelligentCruiseButtonManagementInterfac
           can_sends.append(self.CCS.create_radar_objects(self.packer_pt, self.CAN.pt)) # Radar Objects (25 Hz)
 
     # **** Travel Assist status (stock ACC, MQB evo GEN2) ******************* #
-    # Replace the camera's TA_01 at its own 10 Hz: "active" while openpilot steers with stock ACC engaged (the only
-    # state in which the car itself reports active), otherwise mirror the camera. See VolkswagenSafetyFlags.SPOOF_TA.
+    # Replace the camera's TA_01 at its own 10 Hz: "active" whenever openpilot steers (with or without stock ACC:
+    # measured rack releases 0.7/s with "ready" vs 0.1-0.3/s with "active"), otherwise mirror the camera's status.
+    # The rest of the payload is the camera's own. See VolkswagenSafetyFlags.SPOOF_TA.
     if self.CP.flags & VolkswagenFlags.MQB_EVO_GEN2 and not self.CP.openpilotLongitudinalControl and self.frame % self.CCP.LDW_STEP == 0:
-      ta_status = 4 if (CC.latActive and CS.out.cruiseState.enabled) else CS.travel_assist_status
-      can_sends.append(mebcan.create_travel_assist(self.packer_pt, self.CAN.pt, ta_status, CS.travel_assist_available))
+      ta_status = 4 if CC.latActive else CS.travel_assist_status
+      can_sends.append(mebcan.create_travel_assist(self.packer_pt, self.CAN.pt, CS.ta_stock_values, ta_status))
 
     # **** HUD Controls ***************************************************** #
 

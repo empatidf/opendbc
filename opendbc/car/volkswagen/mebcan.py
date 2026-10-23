@@ -89,13 +89,12 @@ def create_blinker_control(packer, bus, ea_hud_stock_values, ea_control_stock_va
   return packer.make_can_msg("EA_02", bus, values)
 
 
-def create_travel_assist(packer, bus, status, available):
-  # Replacement for the camera's TA_01 while openpilot steers with stock ACC. status: 0 off, 2 ready, 4 active.
-  values = {
-    "Travel_Assist_Status":    status,
-    "Travel_Assist_Request":   0,
-    "Travel_Assist_Available": 1 if available else 0,
-  }
+def create_travel_assist(packer, bus, stock_values, status):
+  # Replacement for the camera's TA_01 while openpilot steers with stock ACC: the camera's own payload
+  # (Speed_Mode_Status, Lane_Unsure, Available, ...) with the status replaced. status: 0 off, 2 ready, 4 active.
+  values = {s: stock_values[s] for s in stock_values if s not in ("CHECKSUM", "COUNTER")}
+  values["Travel_Assist_Status"] = status
+  values["Travel_Assist_Request"] = 0
   return packer.make_can_msg("TA_01", bus, values)
 
 
