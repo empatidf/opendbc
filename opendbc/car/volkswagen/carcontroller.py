@@ -95,14 +95,17 @@ class CarController(CarControllerBase, IntelligentCruiseButtonManagementInterfac
         if CC.latActive:
           hca_enabled = True
           # no closed loop correction for FORD as long as the current curvature car signal is verified
-          # MQB evo GEN2 (Superb Mk4 measured): QFK_01 reports ~0.80 of the commanded curvature while the car achieves
-          # ~0.94, so the correction term reduced the command by ~14 % and the car ran wide in curves. Keep roll only.
+          # MQB evo GEN2 (Superb Mk4): the original closed-loop correction (EPS-reported minus measured curvature) is kept
+          # at town speeds: it keeps the command consistent with what the rack itself reports, and the rack latched LKAS
+          # faults on its 1 Hz HCA release only at commanded lateral accelerations above ~1.25 m/s^2 (0 of 2752 releases
+          # below). Above 50 km/h it fades out (to 0 at 60 km/h), where CURVATURE_GAIN_* compensates the EPS gain instead.
           if self.CP.flags & VolkswagenFlags.FORD_CAR:
             steer_correction = 0.
-          elif self.CP.flags & VolkswagenFlags.MQB_EVO_GEN2:
-            steer_correction = CC_IC.rollCompensation
           else:
-            steer_correction = CS.out_ic.steeringCurvature - CC.currentCurvature + CC_IC.rollCompensation
+            eps_correction = CS.out_ic.steeringCurvature - CC.currentCurvature
+            if self.CP.flags & VolkswagenFlags.MQB_EVO_GEN2:
+              eps_correction *= float(np.interp(CS.out.vEgoRaw, self.CCP.EPS_CORRECTION_BP, self.CCP.EPS_CORRECTION_V))
+            steer_correction = eps_correction + CC_IC.rollCompensation
           apply_curvature = actuators.curvature + steer_correction
           # compensate the speed-dependent EPS curvature gain (see CarControllerParams.CURVATURE_GAIN_*)
           apply_curvature *= float(np.interp(CS.out.vEgoRaw, self.CCP.CURVATURE_GAIN_BP, self.CCP.CURVATURE_GAIN_V))

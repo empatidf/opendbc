@@ -148,13 +148,20 @@ class CarControllerParams:
       # The driving model's desired curvature carries a ~2 Hz, ~1.7 deg wheel dither below 15 km/h on the Superb Mk4.
       # Gain is 1 for sustained turns, so unlike a rate cap it does not reduce the curvature reached in tight turns.
       self.CURVATURE_LPF_TAU_BP = [2.8, 8.3]     # m/s: 10, 30 km/h
-      self.CURVATURE_LPF_TAU_V = [0.2, 0.0] if CP.flags & VolkswagenFlags.MQB_EVO_GEN2 else [0.0, 0.0]
+      # Off again (original behaviour): every latched LKAS fault came from the rack's own 1 Hz release, not from dither.
+      self.CURVATURE_LPF_TAU_V = [0.0, 0.0]
+
+      # MQB evo GEN2: weight of the closed-loop EPS correction by speed (1 = original fork behaviour), m/s: 50, 60 km/h
+      self.EPS_CORRECTION_BP = [13.9, 16.7]
+      self.EPS_CORRECTION_V = [1.0, 0.0]
 
       # Hand-back to the driver: while the driver presses (> STEER_DRIVER_ALLOWANCE) let the steering power drop faster
       # and reach the minimum at a lower driver torque. The Superb Mk4 rack latched LKAS faults with the driver holding
       # 0.6-1.2 Nm against a high power request.
-      self.STEERING_POWER_STEP_DOWN_PRESSED = 8     # % per step while the driver presses (50 -> 4 in ~120 ms)
-      self.STEER_DRIVER_POWER_MAX = 150 if CP.flags & VolkswagenFlags.MQB_EVO_GEN2 else self.STEER_DRIVER_MAX  # 1.5 Nm -> power MIN
+      # Reverted to the original values: the faster hand-back dropped power to ~15 % at 1.2 Nm (a resting hand) and was
+      # felt as the wheel letting go mid-curve; the latched faults did not depend on driver torque.
+      self.STEERING_POWER_STEP_DOWN_PRESSED = self.STEERING_POWER_STEP
+      self.STEER_DRIVER_POWER_MAX = self.STEER_DRIVER_MAX
 
       self.CURVATURE_MAX = 0.195          # Max curvature for steering command, m^-1
       self.CURVATURE_LIMITS = CurvatureSteeringLimits(self.CURVATURE_MAX)
