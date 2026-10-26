@@ -60,6 +60,11 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.pid.kiBP = [10., 40.]
       ret.lateralTuning.pid.kiV = [0., 0.12]
       ret.lateralTuning.pid.kf = 1.
+      if ret.flags & VolkswagenFlags.MQB_EVO:
+        # Superb Mk4: a steady ~2e-4 1/m curvature bias (crown/alignment) left the car ~0.2 m off centre with the
+        # default integrator; ~2.5 s time constant from 43 km/h, none below 29 km/h
+        ret.lateralTuning.pid.kiBP = [8., 12., 40.]
+        ret.lateralTuning.pid.kiV = [0., 0.4, 0.4]
 
       if any(msg in fingerprint[1] for msg in (0x520, 0x86, 0xFD, 0x13D)):  # Airbag_02, LWI_01, ESP_21, QFK_01
         ret.networkLocation = NetworkLocation.gateway
@@ -75,8 +80,14 @@ class CarInterface(CarInterfaceBase):
       if 0x3DC in fingerprint[0]:  # Gateway_73
         ret.flags |= VolkswagenFlags.ALT_GEAR.value
 
-      # only allow gateway harness to escalate Emergency Assist
-      ret.dashcamOnly = ret.networkLocation == NetworkLocation.fwdCamera and not docs
+      if ret.flags & VolkswagenFlags.MQB_EVO:
+        # MQB Evo runs camera harness with stock ACC: the radar keeps gas/brake/AEB, openpilot steers
+        safety_configs[0].safetyParam |= VolkswagenSafetyFlags.MEB_STOCK_ACC.value
+        if 0x1A4 in fingerprint[2]:  # EA_01
+          ret.flags |= VolkswagenFlags.STOCK_EA_PRESENT.value
+      else:
+        # only allow gateway harness to escalate Emergency Assist
+        ret.dashcamOnly = ret.networkLocation == NetworkLocation.fwdCamera and not docs
 
     else:
       # Set global MQB parameters
@@ -120,7 +131,7 @@ class CarInterface(CarInterfaceBase):
     # Global longitudinal tuning defaults, can be overridden per-vehicle
 
     if ret.flags & VolkswagenFlags.MEB:
-      ret.openpilotLongitudinalControl = True
+      ret.openpilotLongitudinalControl = not (ret.flags & VolkswagenFlags.MQB_EVO)
       ret.longitudinalActuatorDelay = 0.3
     else:
       ret.alphaLongitudinalAvailable = ret.networkLocation == NetworkLocation.gateway or docs

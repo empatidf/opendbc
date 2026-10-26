@@ -264,7 +264,9 @@ class CarState(CarStateBase):
     hca_status = self.CCP.hca_status_values.get(pt_cp.vl["QFK_01"]["LatCon_HCA_Status"])
     ret.steerFaultTemporary, ret.steerFaultPermanent = self.update_hca_state(hca_status, in_drive)
 
-    ret.carFaultedNonCritical = cam_cp.vl["EA_01"]["EA_Funktionsstatus"] in (3, 4, 5, 6)
+    # not every camera sends Emergency Assist status (e.g. MQB Evo Superb Mk4)
+    if not (self.CP.flags & VolkswagenFlags.MQB_EVO) or self.CP.flags & VolkswagenFlags.STOCK_EA_PRESENT:
+      ret.carFaultedNonCritical = cam_cp.vl["EA_01"]["EA_Funktionsstatus"] in (3, 4, 5, 6)
 
     ret.gasPressed = pt_cp.vl["Motor_51"]["Accel_Pedal_Pressure"] > 0
     ret.brakePressed = bool(pt_cp.vl["Motor_14"]["MO_Fahrer_bremst"])
@@ -281,7 +283,9 @@ class CarState(CarStateBase):
 
     self.acc_type = ext_cp.vl["ACC_18"]["ACC_Typ"]
     self.esp_standstill = bool(pt_cp.vl["ESC_50"]["Standstill"])
-    if self.CP.flags & VolkswagenFlags.MEB_GEN2:
+    if self.CP.flags & VolkswagenFlags.MQB_EVO:
+      self.esp_hold_confirmation = bool(pt_cp.vl["ESP_21"]["ESP_Haltebestaetigung"])
+    elif self.CP.flags & VolkswagenFlags.MEB_GEN2:
       self.esp_hold_confirmation = pt_cp.vl["VMM_02"]["HMS_Status"] == 1
     else:
       self.esp_hold_confirmation = self.esp_standstill
@@ -292,10 +296,17 @@ class CarState(CarStateBase):
     ret.cruiseState.available = pt_cp.vl["Motor_51"]["TSK_Status"] in (2, 3, 4, 5)
     ret.cruiseState.enabled = pt_cp.vl["Motor_51"]["TSK_Status"] in (3, 4, 5)
     ret.cruiseState.nonAdaptive = bool(pt_cp.vl["Motor_51"]["TSK_Limiter_ausgewaehlt"])
+    if self.CP.pcmCruise:
+      # stock ACC: set speed from the radar, ~327 km/h when unset or at standstill
+      ret.cruiseState.speed = ext_cp.vl["ACC_19"]["ACC_Wunschgeschw_02"] * CV.KPH_TO_MS
+      if ret.cruiseState.speed > 90:
+        ret.cruiseState.speed = 0
+      ret.cruiseState.standstill = self.esp_hold_confirmation
 
     tsk_faulted = pt_cp.vl["Motor_51"]["TSK_Status"] in (6, 7)
     engine_off = pt_cp.vl["Motor_54"]["Engine_On"] == 0
-    long_control_inhibit = pt_cp.vl["VMM_02"]["Long_Control_Inhibit"] == 2
+    # MQB Evo: no identified equivalent of the VMM long control inhibit
+    long_control_inhibit = not (self.CP.flags & VolkswagenFlags.MQB_EVO) and pt_cp.vl["VMM_02"]["Long_Control_Inhibit"] == 2
     ret.accFaulted = (self.update_acc_fault(tsk_faulted, engine_off, long_control_inhibit) or
                       ext_cp.vl["AWV_03"]["AWV_Unavailable"] == 1)  # AEB unavailable (i.e. radar covered)
 

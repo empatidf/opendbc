@@ -78,7 +78,11 @@ class CarController(CarControllerBase):
         if CC.latActive:
           hca_enabled = True
           # compensate the gap between measured and current curvature
-          apply_curvature = actuators.curvature + (CS.curvature_meas - CC.currentCurvature)
+          eps_correction = (CS.curvature_meas - CC.currentCurvature) * float(np.interp(CS.out.vEgoRaw, self.CCP.EPS_CORRECTION_BP,
+                                                                                        self.CCP.EPS_CORRECTION_V))
+          # compensate the speed-dependent EPS gain (see CarControllerParams.CURVATURE_GAIN_*)
+          apply_curvature = (actuators.curvature + eps_correction) * float(np.interp(CS.out.vEgoRaw, self.CCP.CURVATURE_GAIN_BP,
+                                                                                     self.CCP.CURVATURE_GAIN_V))
           apply_curvature = self.CCP.CURVATURE_LIMITS.apply_limits(apply_curvature, self.apply_curvature_last, CS.out.vEgoRaw, CS.curvature_meas,
                                                                    CC.latActive, self.CCP.STEER_STEP)
 

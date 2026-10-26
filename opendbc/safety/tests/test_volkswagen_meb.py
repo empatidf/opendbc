@@ -21,6 +21,7 @@ ACC_OVERRIDE = 4
 
 # MEB message IDs
 MSG_ACC_18     = 0x14D
+MSG_GRA_ACC_01 = 0x12B
 MSG_KLR_01     = 0x25D
 MSG_TA_01      = 0x26B
 MSG_ACC_19     = 0x300
@@ -358,6 +359,35 @@ class TestVolkswagenMebGen2Safety(TestVolkswagenMebSafety):
   DBC = "vw_meb_2024_generated"
 
   SAFETY_PARAM = VolkswagenSafetyFlags.MEB_ALT_CRC
+
+
+class TestVolkswagenMqbEvoStockSafety(TestVolkswagenMebSafetyBase):
+  # MQB Evo GEN2 (e.g. Škoda Superb Mk4) on a camera harness with stock ACC: MEB safety, openpilot steers only
+  DBC = "vw_mqbevo_2024_generated"
+  SAFETY_MODEL = CarParams.SafetyModel.volkswagenMeb
+  SAFETY_PARAM = VolkswagenSafetyFlags.MEB_ALT_CRC | VolkswagenSafetyFlags.MEB_STOCK_ACC
+
+  TX_MSGS = [[MSG_HCA_03, 0], [MSG_LDW_02, 0], [MSG_KLR_01, 0], [MSG_KLR_01, 2], [MSG_GRA_ACC_01, 0], [MSG_GRA_ACC_01, 2]]
+  FWD_BLACKLISTED_ADDRS = {0: [MSG_KLR_01], 2: [MSG_HCA_03, MSG_LDW_02]}
+  RELAY_MALFUNCTION_ADDRS = {0: (MSG_HCA_03, MSG_LDW_02), 2: (MSG_KLR_01,)}
+
+  def test_spam_cancel_safety_check(self):
+    self.safety.set_controls_allowed(0)
+    self.assertTrue(self._tx(self._button_msg(cancel=1, bus=0)))
+    self.assertFalse(self._tx(self._button_msg(resume=1, bus=0)))
+    self.assertFalse(self._tx(self._button_msg(_set=1, bus=0)))
+    # do not block resume if we are engaged already
+    self.safety.set_controls_allowed(1)
+    self.assertTrue(self._tx(self._button_msg(resume=1, bus=0)))
+
+  def test_set_resume_buttons_do_not_engage(self):
+    # stock ACC: engagement follows the car's cruise state, never the buttons
+    self.safety.set_controls_allowed(0)
+    self._rx(self._tsk_status_msg(False, main_switch=True))
+    for button in ["set", "resume"]:
+      self._rx(self._button_msg(_set=(button == "set"), resume=(button == "resume"), bus=0))
+      self._rx(self._button_msg(bus=0))
+      self.assertFalse(self.safety.get_controls_allowed(), f"controls allowed on {button} with stock ACC")
 
 
 # ZAS_Kl_15=1

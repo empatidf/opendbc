@@ -1108,6 +1108,12 @@ FW_VERSIONS = {
       b'\xf1\x871EA907572H \xf1\x890234',
     ],
   },
+  CAR.SKODA_SUPERB_MK4: {
+    # camera harness: only the radar answers UDS (no VIN), so the car is identified by the radar alone
+    (Ecu.fwdRadar, 0x757, None): [
+      b'\xf1\x871N3907567B \xf1\x890280',
+    ],
+  },
   CAR.SKODA_FABIA_MK4: {
     (Ecu.engine, 0x7e0, None): [
       b'\xf1\x8705C906032L \xf1\x891701',

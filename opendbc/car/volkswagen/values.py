@@ -113,6 +113,20 @@ class CarControllerParams:
       self.CURVATURE_MAX = 0.195          # Max curvature for steering command, m^-1
       self.CURVATURE_LIMITS = CurvatureSteeringLimits(self.CURVATURE_MAX)
 
+      if CP.flags & VolkswagenFlags.MQB_EVO:
+        # MQB Evo (Superb Mk4, measured over ~20 drives): the rack executes ~0.9-1.0 of the commanded curvature up to
+        # ~60 km/h, 0.8-0.9 up to ~100 km/h and only ~0.35 above (reduced-authority map). Scale the command by a
+        # speed-dependent gain; CURVATURE_LIMITS (and the panda) still cap it at the ISO lateral accel/jerk limits.
+        self.CURVATURE_GAIN_BP = [16.7, 22.2, 26.4, 29.2, 33.3]  # m/s: 60, 80, 95, 105, 120 km/h
+        self.CURVATURE_GAIN_V = [1.0, 1.12, 1.2, 2.0, 2.3]
+        # The closed-loop correction (EPS-reported minus measured curvature) is kept at town speeds and faded out
+        # between 50 and 60 km/h, where the gain table above takes over (the rack reports ~0.8 of the command there).
+        self.EPS_CORRECTION_BP = [13.9, 16.7]  # m/s: 50, 60 km/h
+        self.EPS_CORRECTION_V = [1.0, 0.0]
+      else:
+        self.CURVATURE_GAIN_BP, self.CURVATURE_GAIN_V = [0.], [1.]
+        self.EPS_CORRECTION_BP, self.EPS_CORRECTION_V = [0.], [1.]
+
       # Longitudinal constants
       self.ACCEL_INACTIVE = 3.01  # m/s^2
       self.JERK_LIMIT = 4.0  # m/s^3
@@ -215,6 +229,7 @@ class WMI(StrEnum):
 class VolkswagenSafetyFlags(IntFlag):
   LONG_CONTROL = 1
   MEB_ALT_CRC = 2
+  MEB_STOCK_ACC = 4  # MEB safety with stock ACC: openpilot steers only, engagement follows the car's cruise state
 
 
 class VolkswagenFlags(IntFlag):
@@ -224,12 +239,14 @@ class VolkswagenFlags(IntFlag):
   ALT_GEAR = 32
   STOCK_KLR_PRESENT = 64
   HAS_BSM = 256  # blind spot monitoring
+  STOCK_EA_PRESENT = 1024  # camera sends Emergency Assist status (EA_01)
 
   # Static flags
   PQ = 2
   MLB = 8
   MEB = 16
   MEB_GEN2 = 128
+  MQB_EVO = 512  # MQB Evo (MEB-generation electronics on MQB cars): MEB control path, MQB Evo DBC, stock ACC
 
 
 @dataclass
@@ -261,6 +278,17 @@ class VolkswagenMEBPlatformConfig(PlatformConfig):
     self.flags |= VolkswagenFlags.MEB
     if self.flags & VolkswagenFlags.MEB_GEN2:
       self.dbc_dict = {Bus.pt: 'vw_meb_2024_generated', Bus.radar: 'vw_meb_2024_generated'}
+
+
+@dataclass
+class VolkswagenMQBevoPlatformConfig(PlatformConfig):
+  # MQB Evo shares the MEB ADAS/chassis messages; only the 2024+ (GEN2, alternate CRC) variant is supported
+  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: 'vw_mqbevo_2024_generated'})
+  chassis_codes: set[str] = field(default_factory=set)
+  wmis: set[WMI] = field(default_factory=set)
+
+  def init(self):
+    self.flags |= VolkswagenFlags.MEB | VolkswagenFlags.MEB_GEN2 | VolkswagenFlags.MQB_EVO
 
 
 @dataclass
@@ -323,7 +351,7 @@ class VWCarDocs(CarDocs):
 # FW_VERSIONS for that existing CAR.
 
 class CAR(Platforms):
-  config: VolkswagenMQBPlatformConfig | VolkswagenPQPlatformConfig | VolkswagenMEBPlatformConfig
+  config: VolkswagenMQBPlatformConfig | VolkswagenPQPlatformConfig | VolkswagenMEBPlatformConfig | VolkswagenMQBevoPlatformConfig
 
   VOLKSWAGEN_ARTEON_MK1 = VolkswagenMQBPlatformConfig(
     [
@@ -583,6 +611,12 @@ class CAR(Platforms):
     [VWCarDocs("Škoda Superb 2015-22")],
     VolkswagenCarSpecs(wheelbase=2.84),
     chassis_codes={"3V", "NP"},
+    wmis={WMI.SKODA},
+  )
+  SKODA_SUPERB_MK4 = VolkswagenMQBevoPlatformConfig(
+    [],  # camera harness (VW C / MFK-C), stock ACC; not a comma-supported harness
+    VolkswagenCarSpecs(wheelbase=2.84, steerRatio=16.5),
+    chassis_codes={"NZ"},
     wmis={WMI.SKODA},
   )
 
