@@ -123,9 +123,15 @@ class CarControllerParams:
         # between 50 and 60 km/h, where the gain table above takes over (the rack reports ~0.8 of the command there).
         self.EPS_CORRECTION_BP = [13.9, 16.7]  # m/s: 50, 60 km/h
         self.EPS_CORRECTION_V = [1.0, 0.0]
+        # First-order low-pass on the command at speed: the model plan arrives in 20 Hz steps (~0.2 deg at the wheel at
+        # 65 km/h) and over half of the command energy was above 4 Hz, felt as a small wheel vibration. Off in town so
+        # tight turns are not delayed; 80 ms from 45 km/h (-3 dB at 2 Hz).
+        self.CURVATURE_LPF_TAU_BP = [8.3, 12.5]  # m/s: 30, 45 km/h
+        self.CURVATURE_LPF_TAU_V = [0.0, 0.08]
       else:
         self.CURVATURE_GAIN_BP, self.CURVATURE_GAIN_V = [0.], [1.]
         self.EPS_CORRECTION_BP, self.EPS_CORRECTION_V = [0.], [1.]
+        self.CURVATURE_LPF_TAU_BP, self.CURVATURE_LPF_TAU_V = [0.], [0.]
 
       # Longitudinal constants
       self.ACCEL_INACTIVE = 3.01  # m/s^2

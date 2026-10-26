@@ -85,6 +85,11 @@ class CarController(CarControllerBase):
                                                                                      self.CCP.CURVATURE_GAIN_V))
           apply_curvature = self.CCP.CURVATURE_LIMITS.apply_limits(apply_curvature, self.apply_curvature_last, CS.out.vEgoRaw, CS.curvature_meas,
                                                                    CC.latActive, self.CCP.STEER_STEP)
+          # smooth the command at speed (see CarControllerParams.CURVATURE_LPF_TAU_*); unity gain, so curves are not reduced
+          lpf_tau = float(np.interp(CS.out.vEgoRaw, self.CCP.CURVATURE_LPF_TAU_BP, self.CCP.CURVATURE_LPF_TAU_V))
+          if lpf_tau > 0.:
+            dt = self.CCP.STEER_STEP * DT_CTRL
+            apply_curvature = self.apply_curvature_last + (apply_curvature - self.apply_curvature_last) * dt / (lpf_tau + dt)
 
           min_power = max(self.steering_power_last - self.CCP.STEERING_POWER_STEP, self.CCP.STEERING_POWER_MIN)
           max_power = min(self.steering_power_last + self.CCP.STEERING_POWER_STEP, self.CCP.STEERING_POWER_MAX)
