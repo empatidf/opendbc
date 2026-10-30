@@ -14,6 +14,7 @@ class CarState(CarStateBase):
     self.frame = 0
     self.eps_init_complete = False
     self.tsk_recovery_timer = 0
+    self.awv_unavailable_frames = 0
     self.CCP = CarControllerParams(CP)
     self.button_states = {button.event_type: False for button in self.CCP.BUTTONS}
     self.esp_hold_confirmation = False
@@ -307,8 +308,13 @@ class CarState(CarStateBase):
     engine_off = pt_cp.vl["Motor_54"]["Engine_On"] == 0
     # MQB Evo: no identified equivalent of the VMM long control inhibit
     long_control_inhibit = not (self.CP.flags & VolkswagenFlags.MQB_EVO) and pt_cp.vl["VMM_02"]["Long_Control_Inhibit"] == 2
-    ret.accFaulted = (self.update_acc_fault(tsk_faulted, engine_off, long_control_inhibit) or
-                      ext_cp.vl["AWV_03"]["AWV_Unavailable"] == 1)  # AEB unavailable (i.e. radar covered)
+    awv_unavailable = ext_cp.vl["AWV_03"]["AWV_Unavailable"] == 1  # AEB unavailable (i.e. radar covered)
+    if self.CP.flags & VolkswagenFlags.MQB_EVO:
+      # MQB Evo sets this bit for 0.1-1 s during Front Assist warning/prefill phases in dense traffic (Superb Mk4 logs:
+      # Active=1, warning timers running, TSK keeps regulating). Only a persistent flag means the radar is unavailable.
+      self.awv_unavailable_frames = self.awv_unavailable_frames + 1 if awv_unavailable else 0
+      awv_unavailable = self.awv_unavailable_frames >= self.CCP.AWV_UNAVAILABLE_FAULT_FRAMES
+    ret.accFaulted = self.update_acc_fault(tsk_faulted, engine_off, long_control_inhibit) or awv_unavailable
 
     # TSK winds braking down through brake_only after driver brakes at low speeds. Requesting drive-off in this
     # state can fault TSK, and stock refuses to engage here as well, so block entry until it clears.

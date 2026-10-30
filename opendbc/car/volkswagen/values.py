@@ -128,6 +128,8 @@ class CarControllerParams:
         # tight turns are not delayed; 80 ms from 45 km/h (-3 dB at 2 Hz).
         self.CURVATURE_LPF_TAU_BP = [8.3, 12.5]  # m/s: 30, 45 km/h
         self.CURVATURE_LPF_TAU_V = [0.0, 0.08]
+        # AWV_03.AWV_Unavailable must persist this long (100 Hz frames) before it counts as a cruise fault
+        self.AWV_UNAVAILABLE_FAULT_FRAMES = 500  # 5 s; Front Assist phases lasted up to 2.0 s on the Superb Mk4
       else:
         self.CURVATURE_GAIN_BP, self.CURVATURE_GAIN_V = [0.], [1.]
         self.EPS_CORRECTION_BP, self.EPS_CORRECTION_V = [0.], [1.]

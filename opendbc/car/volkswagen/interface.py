@@ -65,6 +65,11 @@ class CarInterface(CarInterfaceBase):
         # default integrator; ~2.5 s time constant from 43 km/h, none below 29 km/h
         ret.lateralTuning.pid.kiBP = [8., 12., 40.]
         ret.lateralTuning.pid.kiV = [0., 0.4, 0.4]
+        # The proportional term mostly fed back wheel-angle quantisation noise (0.1 deg steps): above 90 km/h it was the
+        # largest source of 0.3-2 Hz command motion (left-right weave) and, after the speed gain table, doubled what the
+        # model asked for; in a closed-loop model of the rack the MEB gain went unstable if the rack is 1.5x stronger than
+        # the gain table assumes. A third of the MEB gain halves wheel motion at 90-140 km/h; the integrator removes offsets.
+        ret.lateralTuning.pid.kpV = [0., 0.5]
 
       if any(msg in fingerprint[1] for msg in (0x520, 0x86, 0xFD, 0x13D)):  # Airbag_02, LWI_01, ESP_21, QFK_01
         ret.networkLocation = NetworkLocation.gateway
