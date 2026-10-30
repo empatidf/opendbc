@@ -291,6 +291,10 @@ class CarState(CarStateBase):
     else:
       self.esp_hold_confirmation = self.esp_standstill
     self.travel_assist_available = bool(cam_cp.vl["TA_01"]["Travel_Assist_Available"])
+    # Superb Mk4 logs: while Travel Assist is active (status 4) the rack follows the camera's own lane centering and only
+    # 3-7 % of openpilot's deviations from the plan; lateral control must not integrate errors the rack does not act on
+    if self.CP.flags & VolkswagenFlags.MQB_EVO:
+      ret.lateralStockAssistActive = cam_cp.vl["TA_01"]["Travel_Assist_Status"] == 4
     ret.stockFcw = bool(ext_cp.vl["AWV_03"]["FCW_Active"])
     ret.stockAeb = bool(ext_cp.vl["AWV_03"]["AEB_Active"])
 

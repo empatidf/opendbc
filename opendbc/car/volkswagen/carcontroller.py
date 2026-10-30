@@ -59,6 +59,7 @@ class CarController(CarControllerBase):
     self.distance_bar_frame = 0
     self.gra_acc_counter_last = None
     self.hca_mitigation = HCAMitigation(self.CCP)
+    self.curvature_lpf = 0.
 
   def update(self, CC, CS, now_nanos):
     actuators = CC.actuators
@@ -83,13 +84,18 @@ class CarController(CarControllerBase):
           # compensate the speed-dependent EPS gain (see CarControllerParams.CURVATURE_GAIN_*)
           apply_curvature = (actuators.curvature + eps_correction) * float(np.interp(CS.out.vEgoRaw, self.CCP.CURVATURE_GAIN_BP,
                                                                                      self.CCP.CURVATURE_GAIN_V))
-          apply_curvature = self.CCP.CURVATURE_LIMITS.apply_limits(apply_curvature, self.apply_curvature_last, CS.out.vEgoRaw, CS.curvature_meas,
-                                                                   CC.latActive, self.CCP.STEER_STEP)
-          # smooth the command at speed (see CarControllerParams.CURVATURE_LPF_TAU_*); unity gain, so curves are not reduced
+          # smooth the command at speed (see CarControllerParams.CURVATURE_LPF_TAU_*); unity gain, so curves are not reduced.
+          # The filter runs before the accel/jerk limits: filtering the already jerk-limited command cut the allowed slew
+          # rate to a fifth (0.7 m/s^3 at 80 ms), which made lane changes start late and take twice as long.
           lpf_tau = float(np.interp(CS.out.vEgoRaw, self.CCP.CURVATURE_LPF_TAU_BP, self.CCP.CURVATURE_LPF_TAU_V))
           if lpf_tau > 0.:
             dt = self.CCP.STEER_STEP * DT_CTRL
-            apply_curvature = self.apply_curvature_last + (apply_curvature - self.apply_curvature_last) * dt / (lpf_tau + dt)
+            self.curvature_lpf += (apply_curvature - self.curvature_lpf) * dt / (lpf_tau + dt)
+            apply_curvature = self.curvature_lpf
+          else:
+            self.curvature_lpf = apply_curvature
+          apply_curvature = self.CCP.CURVATURE_LIMITS.apply_limits(apply_curvature, self.apply_curvature_last, CS.out.vEgoRaw, CS.curvature_meas,
+                                                                   CC.latActive, self.CCP.STEER_STEP)
 
           min_power = max(self.steering_power_last - self.CCP.STEERING_POWER_STEP, self.CCP.STEERING_POWER_MIN)
           max_power = min(self.steering_power_last + self.CCP.STEERING_POWER_STEP, self.CCP.STEERING_POWER_MAX)
@@ -110,6 +116,8 @@ class CarController(CarControllerBase):
 
         can_sends.append(mebcan.create_steering_control(self.packer_pt, self.CAN.pt, apply_curvature, hca_enabled, steering_power))
         self.apply_curvature_last = apply_curvature
+        if not CC.latActive:
+          self.curvature_lpf = apply_curvature
         self.steering_power_last = steering_power
 
       else:

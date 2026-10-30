@@ -204,6 +204,7 @@ struct CarState {
   lowSpeedAlert @56 :Bool;  # lost steering control due to a dynamic min steering speed
   blockPcmEnable @60 :Bool;  # whether to allow PCM to enable this frame
   carNotReady @61 :Bool;  # car is transiently refusing engagement, used to prevent a fault if engaged
+  lateralStockAssistActive @62 :Bool;  # the car's own lane centering is steering too (e.g. VW Travel Assist); lateral commands are blended or ignored
 
   # cruise state
   cruiseState @10 :CruiseState;
