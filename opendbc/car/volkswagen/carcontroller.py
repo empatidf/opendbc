@@ -147,12 +147,7 @@ class CarController(CarControllerBase):
       if self.frame % self.CCP.KLR_01_STEP == 0:
         lat_active = CC.latActive and not CC.driverMonitoringEscalation
         can_sends.append(mebcan.create_capacitive_wheel_touch(self.packer_pt, self.CAN.cam, lat_active, CS.klr_stock_values))
-        # MQB Evo camera harness: the steering wheel's own KLR_01 is on this bus too. A second KLR_01 on its own 60 ms clock
-        # drifts against the stock one, and when both transmit together the frames collide: bus errors, the stock frame is
-        # lost and the counter runs backwards (Superb Mk4 drive 0000004a, 192.4 s: stock ACC shut off at standstill with a
-        # reversible fault 30 ms later). Only the camera side, where the relay blocks the stock frame, gets ours.
-        if not self.CP.flags & VolkswagenFlags.MQB_EVO:
-          can_sends.append(mebcan.create_capacitive_wheel_touch(self.packer_pt, self.CAN.pt, lat_active, CS.klr_stock_values))
+        can_sends.append(mebcan.create_capacitive_wheel_touch(self.packer_pt, self.CAN.pt, lat_active, CS.klr_stock_values))
 
     # **** Acceleration Controls ******************************************** #
 
