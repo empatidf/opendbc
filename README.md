@@ -1,3 +1,27 @@
+# empatidf/opendbc — Škoda Superb Mk4 port
+
+This `master` branch is **[comma.ai opendbc](https://github.com/commaai/opendbc)** plus support for the
+**Škoda Superb Mk4** (2024+, MQB Evo GEN2). It is the car code used by
+[empatidf/openpilot](https://github.com/empatidf/openpilot) branch `master`; installation and current status are
+described there.
+
+**Where the code comes from:** the MQB Evo message definitions
+(`opendbc/dbc/generator/volkswagen/_vw_mqbevo_common.dbc` and `vw_mqbevo_2024.dbc`, unchanged) and the MQB Evo
+platform approach (MQB Evo running on the MEB control path) **are taken from
+[infiniteCable2/opendbc](https://github.com/infiniteCable2/opendbc)**. The Superb Mk4 platform, its
+identification, the stock-ACC mode, its lateral tuning and the fixes were added on top in
+`opendbc/car/volkswagen`.
+
+| Branch | What it is |
+|---|---|
+| **`master`** | comma.ai opendbc + Superb Mk4 port (used by empatidf/openpilot `master`) |
+| `sunnypilot` | Earlier port, continues infiniteCable2/opendbc (used by empatidf/openpilot `sunnypilot`) |
+
+openpilot pins commits of these branches as a submodule: do not rebase or force-push them, or devices can no
+longer update.
+
+---
+
 <div align="center" style="text-align: center;">
 
 <h1>opendbc</h1>
