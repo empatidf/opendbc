@@ -1,3 +1,19 @@
+# empatidf/opendbc — branch `sunnypilot` (earlier Škoda Superb Mk4 port)
+
+> **Kept for reference, not developed further.** The active port is on branch
+> [`master`](https://github.com/empatidf/opendbc/tree/master), used by
+> [empatidf/openpilot](https://github.com/empatidf/openpilot) `master`.
+
+**Where the code comes from:** this branch **is taken from
+[infiniteCable2/opendbc](https://github.com/infiniteCable2/opendbc)** (a sunnypilot-based opendbc with MEB and
+MQB Evo support, including the MQB Evo message definitions and the MEB/MQB Evo control and safety code). The
+Škoda Superb Mk4 platform and its tuning were added on top. It is the car code of
+[empatidf/openpilot](https://github.com/empatidf/openpilot) branch `sunnypilot`.
+
+Do not rebase or force-push this branch: openpilot pins its commits as a submodule.
+
+---
+
 <div align="center" style="text-align: center;">
 
 <h1>opendbc</h1>
