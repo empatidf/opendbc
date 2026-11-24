@@ -2,8 +2,10 @@ import random
 import re
 import unittest
 
+from opendbc.can import CANPacker
 from opendbc.car import DT_CTRL
 from opendbc.car.structs import CarParams
+from opendbc.car.volkswagen import mebcan
 from opendbc.car.volkswagen.carcontroller import HCAMitigation
 from opendbc.car.volkswagen.values import CAR, CarControllerParams as CCP, WMI, match_fw_to_car_fuzzy
 from opendbc.car.volkswagen.fingerprints import FW_VERSIONS
@@ -28,6 +30,33 @@ class TestVolkswagenHCAMitigation(unittest.TestCase):
         should_nudge = actuator_value != 0 and frame == self.STUCK_TORQUE_FRAMES
         expected_torque = actuator_value - (1, -1)[actuator_value < 0] if should_nudge else actuator_value
         assert hca_mitigation.update(actuator_value, actuator_value) == expected_torque, f"{frame=}"
+
+class TestVolkswagenTravelAssistStatus(unittest.TestCase):
+  # frames logged from a Skoda Superb Mk4 camera, counter 3: Travel Assist in standby and active
+  STANDBY = bytes.fromhex("3c43800041000000")
+  ACTIVE = bytes.fromhex("6983800041000000")
+  STOCK = {"Travel_Assist_Status": 2, "Speed_Mode_01": 0, "Speed_Mode_02": 0, "Travel_Assist_Request": 0, "Init": 0,
+           "Travel_Assist_Available": 1, "Unknown_01": 0, "Unknown_02": 0, "Unknown_03": 0, "Speed_Mode_Status": 1, "Lane_Unsure": 2}
+
+  def _frame(self, stock, lat_active, cruise_enabled):
+    packer = CANPacker("vw_mqbevo_2024_generated")
+    packer.counters[0x26B] = 3
+    return mebcan.create_travel_assist_status(packer, 0, stock, lat_active, cruise_enabled)[1]
+
+  def test_travel_assist_status(self):
+    # not steering: the camera's frame is passed on unchanged
+    assert self._frame(self.STOCK, False, True) == self.STANDBY
+    assert self._frame(self.STOCK, False, False) == self.STANDBY
+    # steering with the camera in standby: the frame the camera itself sends when Travel Assist is active
+    assert self._frame(self.STOCK, True, True) == self.ACTIVE
+    # an off or initialising camera gets the same frame while steering
+    assert self._frame(dict.fromkeys(self.STOCK, 0), True, True) == self.ACTIVE
+    # the camera's own active state is passed on, but never while ACC is not engaged
+    stock_active = dict(self.STOCK, Travel_Assist_Status=4)
+    assert self._frame(stock_active, False, True) == self.ACTIVE
+    assert self._frame(stock_active, True, False) == self.STANDBY
+    assert self._frame(self.STOCK, True, False) == self.STANDBY
+
 
 class TestVolkswagenPlatformConfigs(unittest.TestCase):
   def test_spare_part_fw_pattern(self):

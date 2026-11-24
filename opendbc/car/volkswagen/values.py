@@ -130,10 +130,25 @@ class CarControllerParams:
         self.CURVATURE_LPF_TAU_V = [0.0, 0.08]
         # AWV_03.AWV_Unavailable must persist this long (100 Hz frames) before it counts as a cruise fault
         self.AWV_UNAVAILABLE_FAULT_FRAMES = 500  # 5 s; Front Assist phases lasted up to 2.0 s on the Superb Mk4
+        # openpilot re-sends the camera's TA_01 (10 Hz) and reports Travel Assist as active while it steers. Without it
+        # the rack ends every lateral request after exactly 1.00 s and re-accepts it one frame later (Superb Mk4: 191
+        # drops in 13 min), which in turns is a 1.5 Nm jolt and a pulse towards straight ahead once a second.
+        self.TA_01_STEP = 10
+        # The gain table above was measured with the car's own Travel Assist active, when its lane centering steers
+        # along and the rack takes only part of our command. Steering alone the rack executed 0.92-1.03 of the command
+        # (measured up to 60 km/h), so the command is sent unscaled then; feedback covers what is left.
+        self.CURVATURE_GAIN_ALONE = 1.0
+        # Driver override: follow the measured curvature while the driver steers and hand back over this time after
+        # the release. Holding the plan against the driver stored up a counter command (20e-4 1/m at 90 km/h) that the
+        # rack executed with overshoot on release (1.6 m/s^2), putting the car on the edge line.
+        self.OVERRIDE_BLEND_IN_TIME = 0.2   # s
+        self.OVERRIDE_BLEND_OUT_TIME = 1.0  # s
       else:
         self.CURVATURE_GAIN_BP, self.CURVATURE_GAIN_V = [0.], [1.]
         self.EPS_CORRECTION_BP, self.EPS_CORRECTION_V = [0.], [1.]
         self.CURVATURE_LPF_TAU_BP, self.CURVATURE_LPF_TAU_V = [0.], [0.]
+        self.CURVATURE_GAIN_ALONE = 1.0
+        self.OVERRIDE_BLEND_IN_TIME, self.OVERRIDE_BLEND_OUT_TIME = 0.2, 1.0
 
       # Longitudinal constants
       self.ACCEL_INACTIVE = 3.01  # m/s^2

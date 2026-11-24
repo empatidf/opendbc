@@ -17,6 +17,39 @@ def create_steering_control(packer, bus, apply_curvature, lkas_enabled, power=0)
   return packer.make_can_msg("HCA_03", bus, values)
 
 
+def create_travel_assist_status(packer, bus, ta_stock_values, lat_active, cruise_enabled):
+  # The camera's TA_01, re-sent to the car. While openpilot steers and the camera's own Travel Assist is not active,
+  # it reports Travel Assist as active with exactly the frame the camera sends in that state (Superb Mk4: status
+  # nibble 8, then 80 00 41 00 00 00), so the rack accepts continuous lateral requests instead of ending each one after
+  # a second. In every other case the camera's frame is passed on unchanged, including its own active state.
+  values = {s: ta_stock_values[s] for s in [
+    "Travel_Assist_Status",
+    "Speed_Mode_01",
+    "Speed_Mode_02",
+    "Travel_Assist_Request",
+    "Init",
+    "Travel_Assist_Available",
+    "Unknown_01",
+    "Unknown_02",
+    "Unknown_03",
+    "Speed_Mode_Status",
+    "Lane_Unsure",
+  ]}
+
+  if not cruise_enabled:
+    # the camera reports active for up to a second after ACC disengages; the panda only passes active while engaged
+    if values["Travel_Assist_Status"] == 4:
+      values["Travel_Assist_Status"] = 2
+  elif lat_active and values["Travel_Assist_Status"] != 4:
+    values = {
+      "Travel_Assist_Status": 4,
+      "Travel_Assist_Available": 1,
+      "Speed_Mode_Status": 1,
+      "Lane_Unsure": 2,
+    }
+  return packer.make_can_msg("TA_01", bus, values)
+
+
 def create_eps_update(packer, bus, eps_stock_values, ea_simulated_torque):
   values = {s: eps_stock_values[s] for s in [
     "COUNTER",                     # Sync counter value to EPS output

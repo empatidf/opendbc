@@ -365,9 +365,22 @@ class TestVolkswagenMqbEvoStockSafety(TestVolkswagenMebSafetyBase):
   SAFETY_MODEL = CarParams.SafetyModel.volkswagenMeb
   SAFETY_PARAM = VolkswagenSafetyFlags.MEB_ALT_CRC | VolkswagenSafetyFlags.MEB_STOCK_ACC
 
-  TX_MSGS = [[MSG_HCA_03, 0], [MSG_LDW_02, 0], [MSG_KLR_01, 0], [MSG_KLR_01, 2], [MSG_GRA_ACC_01, 0], [MSG_GRA_ACC_01, 2]]
-  FWD_BLACKLISTED_ADDRS = {0: [MSG_KLR_01], 2: [MSG_HCA_03, MSG_LDW_02]}
-  RELAY_MALFUNCTION_ADDRS = {0: (MSG_HCA_03, MSG_LDW_02), 2: (MSG_KLR_01,)}
+  TX_MSGS = [[MSG_HCA_03, 0], [MSG_LDW_02, 0], [MSG_KLR_01, 0], [MSG_KLR_01, 2], [MSG_TA_01, 0],
+             [MSG_GRA_ACC_01, 0], [MSG_GRA_ACC_01, 2]]
+  FWD_BLACKLISTED_ADDRS = {0: [MSG_KLR_01], 2: [MSG_HCA_03, MSG_LDW_02, MSG_TA_01]}
+  RELAY_MALFUNCTION_ADDRS = {0: (MSG_HCA_03, MSG_LDW_02, MSG_TA_01), 2: (MSG_KLR_01,)}
+
+  def _ta_status_msg(self, status):
+    values = {"Travel_Assist_Status": status, "Travel_Assist_Available": 1}
+    return self.packer.make_can_msg_safety("TA_01", 0, values)
+
+  def test_travel_assist_status(self):
+    # openpilot re-sends the camera's Travel Assist status: "active" only while controls are allowed
+    for controls_allowed in (True, False):
+      self.safety.set_controls_allowed(controls_allowed)
+      for status in range(8):
+        should_tx = controls_allowed or status != 4
+        self.assertEqual(should_tx, self._tx(self._ta_status_msg(status)), (controls_allowed, status))
 
   def test_spam_cancel_safety_check(self):
     self.safety.set_controls_allowed(0)

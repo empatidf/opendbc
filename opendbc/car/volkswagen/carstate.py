@@ -24,6 +24,7 @@ class CarState(CarStateBase):
     self.acc_type = 0
     self.travel_assist_available = False
     self.curvature_meas = 0.
+    self.ta_stock_values = {}
 
   def update_button_enable(self, buttonEvents: list[structs.CarState.ButtonEvent]):
     if not self.CP.pcmCruise:
@@ -295,6 +296,7 @@ class CarState(CarStateBase):
     # 3-7 % of openpilot's deviations from the plan; lateral control must not integrate errors the rack does not act on
     if self.CP.flags & VolkswagenFlags.MQB_EVO:
       ret.lateralStockAssistActive = cam_cp.vl["TA_01"]["Travel_Assist_Status"] == 4
+      self.ta_stock_values = cam_cp.vl["TA_01"]
     ret.stockFcw = bool(ext_cp.vl["AWV_03"]["FCW_Active"])
     ret.stockAeb = bool(ext_cp.vl["AWV_03"]["AEB_Active"])
 

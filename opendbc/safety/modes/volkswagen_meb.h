@@ -24,6 +24,9 @@
 #define VOLKSWAGEN_MEB_ACC_AKTIV_REGELT        3U
 #define VOLKSWAGEN_MEB_ACC_OVERRIDE            4U
 
+// TA_01.Travel_Assist_Status, the state that tells the rack Travel Assist is steering
+#define VOLKSWAGEN_MEB_TA_ACTIVE               4U
+
 #define VOLKSWAGEN_MEB_COMMON_RX_CHECKS \
   {.msg = {{MSG_LH_EPS_03, 0, 8, 100U, .max_counter = 15U, .ignore_quality_flag = true}, { 0 }, { 0 }}}, \
   {.msg = {{MSG_MOTOR_14, 0, 8, 10U, .max_counter = 15U, .ignore_quality_flag = true}, { 0 }, { 0 }}}, \
@@ -111,6 +114,7 @@ static safety_config volkswagen_meb_init(uint16_t param) {
     {MSG_LDW_02, 0, 8, .check_relay = true},
     {MSG_KLR_01, 0, 8, .check_relay = false},
     {MSG_KLR_01, 2, 8, .check_relay = true},
+    {MSG_TA_01, 0, 8, .check_relay = true},  // the camera's Travel Assist status, re-sent by openpilot (active while steering)
     {MSG_GRA_ACC_01, 0, 8, .check_relay = false},
     {MSG_GRA_ACC_01, 2, 8, .check_relay = false},
   };
@@ -269,6 +273,17 @@ static bool volkswagen_meb_tx_hook(const CANPacket_t *msg) {
     int steer_power = (int)msg->data[2];
 
     if (steer_curvature_cmd_checks(desired_curvature_raw, steer_power, steer_req, VOLKSWAGEN_MEB_STEERING_LIMITS)) {
+      tx = false;
+    }
+  }
+
+  // Stock ACC: openpilot re-sends the camera's Travel Assist status. "Active" makes the rack accept lateral requests
+  // without its one second intervention limit, so it may only be claimed while controls are allowed. Standby, off and
+  // the fault states stay available, as the frame also carries the camera's own status to the car.
+  if (safety_setup.volkswagen_meb_stock_acc && (msg->addr == MSG_TA_01) && !safety.controls_allowed) {
+    // Signal: TA_01.Travel_Assist_Status
+    uint8_t ta_status = (msg->data[1] >> 5) & 0x07U;
+    if (ta_status == VOLKSWAGEN_MEB_TA_ACTIVE) {
       tx = false;
     }
   }
