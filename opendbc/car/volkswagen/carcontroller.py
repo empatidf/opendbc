@@ -60,6 +60,7 @@ class CarController(CarControllerBase):
     self.gra_acc_counter_last = None
     self.hca_mitigation = HCAMitigation(self.CCP)
     self.curvature_lpf = 0.
+    self.override_blend = 0.
 
   def update(self, CC, CS, now_nanos):
     actuators = CC.actuators
@@ -81,9 +82,13 @@ class CarController(CarControllerBase):
           # compensate the gap between measured and current curvature
           eps_correction = (CS.curvature_meas - CC.currentCurvature) * float(np.interp(CS.out.vEgoRaw, self.CCP.EPS_CORRECTION_BP,
                                                                                         self.CCP.EPS_CORRECTION_V))
-          # compensate the speed-dependent EPS gain (see CarControllerParams.CURVATURE_GAIN_*)
-          apply_curvature = (actuators.curvature + eps_correction) * float(np.interp(CS.out.vEgoRaw, self.CCP.CURVATURE_GAIN_BP,
-                                                                                     self.CCP.CURVATURE_GAIN_V))
+          # compensate the speed-dependent EPS gain while the car's own Travel Assist steers along; steering alone the
+          # rack follows the command as sent (see CarControllerParams.CURVATURE_GAIN_*)
+          if CS.out.lateralStockAssistActive:
+            curvature_gain = float(np.interp(CS.out.vEgoRaw, self.CCP.CURVATURE_GAIN_BP, self.CCP.CURVATURE_GAIN_V))
+          else:
+            curvature_gain = self.CCP.CURVATURE_GAIN_ALONE
+          apply_curvature = (actuators.curvature + eps_correction) * curvature_gain
           # smooth the command at speed (see CarControllerParams.CURVATURE_LPF_TAU_*); unity gain, so curves are not reduced.
           # The filter runs before the accel/jerk limits: filtering the already jerk-limited command cut the allowed slew
           # rate to a fifth (0.7 m/s^3 at 80 ms), which made lane changes start late and take twice as long.
@@ -94,6 +99,16 @@ class CarController(CarControllerBase):
             apply_curvature = self.curvature_lpf
           else:
             self.curvature_lpf = apply_curvature
+          # yield to the driver: follow the measured curvature while they steer, then hand back smoothly. Not during a
+          # lane change, where the nudge on the wheel is the driver's go-ahead for openpilot to steer.
+          dt = self.CCP.STEER_STEP * DT_CTRL
+          if CS.out.steeringPressed and not (CC.leftBlinker or CC.rightBlinker):
+            self.override_blend = min(self.override_blend + dt / self.CCP.OVERRIDE_BLEND_IN_TIME, 1.)
+          else:
+            blend_out_time = self.CCP.OVERRIDE_BLEND_IN_TIME if (CC.leftBlinker or CC.rightBlinker) else self.CCP.OVERRIDE_BLEND_OUT_TIME
+            self.override_blend = max(self.override_blend - dt / blend_out_time, 0.)
+          if self.override_blend > 0. and self.CP.flags & VolkswagenFlags.MQB_EVO:
+            apply_curvature += (CS.curvature_meas - apply_curvature) * self.override_blend
           apply_curvature = self.CCP.CURVATURE_LIMITS.apply_limits(apply_curvature, self.apply_curvature_last, CS.out.vEgoRaw, CS.curvature_meas,
                                                                    CC.latActive, self.CCP.STEER_STEP)
 
@@ -118,6 +133,7 @@ class CarController(CarControllerBase):
         self.apply_curvature_last = apply_curvature
         if not CC.latActive:
           self.curvature_lpf = apply_curvature
+          self.override_blend = 0.
         self.steering_power_last = steering_power
 
       else:
